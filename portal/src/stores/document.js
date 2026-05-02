@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fileBrowserApi, readRecordApi } from '../api'
+import { fileBrowserApi, readRecordApi, documentApi } from '../api'
 
 export const useDocumentStore = defineStore('document', () => {
   const categories = ref([
@@ -94,8 +94,28 @@ export const useDocumentStore = defineStore('document', () => {
 
   function getPreviewUrl(filename, path = '') {
     const fileUrl = getFileUrl(filename, path)
-    const encodedUrl = encodeURIComponent(window.location.origin + fileUrl)
+    const baseUrl = window.location.origin
+    const fullUrl = baseUrl + fileUrl
+    const encodedUrl = encodeURIComponent(fullUrl)
     return `/kkfileview/onlinePreview?url=${encodedUrl}`
+  }
+
+  async function createFolder(parentPath, folderName) {
+    try {
+      const response = await documentApi.createFolder(parentPath, folderName)
+      return { success: true, data: response.data }
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || '创建失败' }
+    }
+  }
+
+  async function getVersions(filePath) {
+    try {
+      const response = await documentApi.getVersions(filePath)
+      return { success: true, data: response.data.versions || [] }
+    } catch (error) {
+      return { success: false, data: [] }
+    }
   }
 
   return {
@@ -110,6 +130,8 @@ export const useDocumentStore = defineStore('document', () => {
     deleteFile,
     recordRead,
     getFileUrl,
-    getPreviewUrl
+    getPreviewUrl,
+    createFolder,
+    getVersions
   }
 })

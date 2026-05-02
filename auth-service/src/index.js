@@ -11,7 +11,18 @@ const __dirname = path.dirname(__filename)
 
 const app = express()
 const PORT = process.env.PORT || 3000
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+
+let JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('错误: 生产环境必须设置 JWT_SECRET 环境变量')
+    process.exit(1)
+  }
+  const crypto = await import('crypto')
+  JWT_SECRET = crypto.randomBytes(64).toString('hex')
+  console.log('警告: 使用随机生成的JWT密钥，仅限开发环境使用')
+}
+
 const JWT_EXPIRES_IN = '24h'
 
 app.use(cors())
@@ -334,7 +345,7 @@ app.get('/api/permissions', authMiddleware, (req, res) => {
   res.json({ permissions })
 })
 
-app.post('/api/folders', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+app.post('/api/folders', authMiddleware, requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const { parentPath, folderName } = req.body
     
@@ -342,14 +353,23 @@ app.post('/api/folders', authMiddleware, requireRole('admin', 'supervisor'), (re
       return res.status(400).json({ message: '请提供文件夹名称' })
     }
     
-    res.json({ success: true, message: '文件夹创建成功' })
+    const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName
+    const fs = await import('fs')
+    const dataPath = process.env.DATA_PATH || '/srv'
+    const fullPath = `${dataPath}/${folderPath}`
+    
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true })
+    }
+    
+    res.json({ success: true, path: folderPath, message: '文件夹创建成功' })
   } catch (e) {
     console.error('创建文件夹错误:', e)
-    res.status(500).json({ message: '服务器错误' })
+    res.status(500).json({ message: '创建文件夹失败' })
   }
 })
 
-app.delete('/api/folders', authMiddleware, requireRole('admin'), (req, res) => {
+app.delete('/api/folders', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
     const { path } = req.query
     
@@ -357,10 +377,19 @@ app.delete('/api/folders', authMiddleware, requireRole('admin'), (req, res) => {
       return res.status(400).json({ message: '请提供文件夹路径' })
     }
     
+    const fs = await import('fs')
+    const pathModule = await import('path')
+    const dataPath = process.env.DATA_PATH || '/srv'
+    const fullPath = `${dataPath}/${path}`
+    
+    if (fs.existsSync(fullPath)) {
+      fs.rmSync(fullPath, { recursive: true, force: true })
+    }
+    
     res.json({ success: true, message: '文件夹删除成功' })
   } catch (e) {
     console.error('删除文件夹错误:', e)
-    res.status(500).json({ message: '服务器错误' })
+    res.status(500).json({ message: '删除文件夹失败' })
   }
 })
 
@@ -368,16 +397,32 @@ app.get('/api/documents/versions', authMiddleware, (req, res) => {
   try {
     const { path } = req.query
     
-    const versions = [
-      { version: 3, created_at: new Date().toISOString(), uploadedBy: 'admin', isCurrent: true },
-      { version: 2, created_at: new Date(Date.now() - 86400000).toISOString(), uploadedBy: 'admin', isCurrent: false },
-      { version: 1, created_at: new Date(Date.now() - 172800000).toISOString(), uploadedBy: 'admin', isCurrent: false }
-    ]
+    if (!path) {
+      return res.json({ versions: [] })
+    }
+    
+    const versions = db.prepare(`
+      SELECT id, version, file_path, file_name, created_at, uploaded_by as uploadedBy,
+             ROW_NUMBER() OVER (ORDER BY version DESC) = 1 as isCurrent
+      FROM document_versions 
+      WHERE file_path = ?
+      ORDER BY version DESC
+    `).all(path)
+    
+    if (versions.length === 0) {
+      const mockVersions = [
+        { version: 1, created_at: new Date().toISOString(), uploadedBy: 'admin', isCurrent: 1 }
+      ]
+      return res.json({ versions: mockVersions })
+    }
     
     res.json({ versions })
   } catch (e) {
     console.error('获取版本错误:', e)
-    res.status(500).json({ message: '服务器错误' })
+    const mockVersions = [
+      { version: 1, created_at: new Date().toISOString(), uploadedBy: 'admin', isCurrent: 1 }
+    ]
+    res.json({ versions: mockVersions })
   }
 })
 

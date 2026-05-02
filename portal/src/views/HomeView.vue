@@ -6,7 +6,7 @@
         <span class="logo-text">企业文档系统</span>
       </div>
       
-      <div class="search-box">
+      <div class="search-box" :class="{ 'hidden-mobile': isMobile }">
         <span>🔍</span>
         <input 
           type="text"
@@ -19,7 +19,7 @@
       <div class="header-actions">
         <div class="user-info" @click="$router.push('/profile')">
           <div class="user-avatar">{{ userInitials }}</div>
-          <span>{{ authStore.user?.username || '用户' }}</span>
+          <span v-if="!isMobile">{{ authStore.user?.username || '用户' }}</span>
         </div>
         <button class="btn btn-outline" @click="handleLogout">退出</button>
       </div>
@@ -86,7 +86,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useDocumentStore } from '../stores/document'
@@ -104,6 +104,7 @@ const showPreview = ref(false)
 const previewUrl = ref('')
 const previewFilename = ref('')
 const previewFilePath = ref('')
+const isMobile = ref(false)
 
 const userInitials = computed(() => {
   const name = authStore.user?.username || ''
@@ -128,7 +129,7 @@ function formatSize(bytes) {
 }
 
 function navigateToCategory(category) {
-  router.push(`/category/${category.id}`)
+  router.push(`/folder/${encodeURIComponent(category.id)}`)
 }
 
 function handleSearch() {
@@ -150,9 +151,13 @@ async function openPreview(doc) {
   }
 }
 
-async function handleLogout() {
+function handleLogout() {
   authStore.logout()
   router.push('/login')
+}
+
+function handleResize() {
+  isMobile.value = window.innerWidth < 768
 }
 
 async function loadRecentDocs() {
@@ -173,7 +178,13 @@ async function loadRecentDocs() {
 }
 
 onMounted(() => {
+  handleResize()
+  window.addEventListener('resize', handleResize)
   loadRecentDocs()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -188,5 +199,31 @@ onMounted(() => {
 .empty-icon {
   font-size: 3rem;
   margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .hidden-mobile {
+    display: none !important;
+  }
+  
+  .header {
+    padding: 0 1rem;
+  }
+  
+  .header-actions {
+    gap: 0.5rem;
+  }
+  
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .welcome-banner {
+    padding: 1.5rem;
+  }
+  
+  .welcome-banner h1 {
+    font-size: 1.25rem;
+  }
 }
 </style>
