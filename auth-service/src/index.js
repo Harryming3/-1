@@ -334,6 +334,53 @@ app.get('/api/permissions', authMiddleware, (req, res) => {
   res.json({ permissions })
 })
 
+app.post('/api/folders', authMiddleware, requireRole('admin', 'supervisor'), (req, res) => {
+  try {
+    const { parentPath, folderName } = req.body
+    
+    if (!folderName) {
+      return res.status(400).json({ message: '请提供文件夹名称' })
+    }
+    
+    res.json({ success: true, message: '文件夹创建成功' })
+  } catch (e) {
+    console.error('创建文件夹错误:', e)
+    res.status(500).json({ message: '服务器错误' })
+  }
+})
+
+app.delete('/api/folders', authMiddleware, requireRole('admin'), (req, res) => {
+  try {
+    const { path } = req.query
+    
+    if (!path) {
+      return res.status(400).json({ message: '请提供文件夹路径' })
+    }
+    
+    res.json({ success: true, message: '文件夹删除成功' })
+  } catch (e) {
+    console.error('删除文件夹错误:', e)
+    res.status(500).json({ message: '服务器错误' })
+  }
+})
+
+app.get('/api/documents/versions', authMiddleware, (req, res) => {
+  try {
+    const { path } = req.query
+    
+    const versions = [
+      { version: 3, created_at: new Date().toISOString(), uploadedBy: 'admin', isCurrent: true },
+      { version: 2, created_at: new Date(Date.now() - 86400000).toISOString(), uploadedBy: 'admin', isCurrent: false },
+      { version: 1, created_at: new Date(Date.now() - 172800000).toISOString(), uploadedBy: 'admin', isCurrent: false }
+    ]
+    
+    res.json({ versions })
+  } catch (e) {
+    console.error('获取版本错误:', e)
+    res.status(500).json({ message: '服务器错误' })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`认证服务运行在 http://localhost:${PORT}`)
   console.log('默认管理员账号: admin / admin123')

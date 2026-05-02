@@ -56,6 +56,12 @@ export const statsApi = {
   get: () => api.get('/stats')
 }
 
+export const documentApi = {
+  getVersions: (filePath) => api.get(`/documents/versions`, { params: { path: filePath } }),
+  createFolder: (parentPath, folderName) => api.post('/folders', { parentPath, folderName }),
+  deleteFolder: (folderPath) => api.delete('/folders', { params: { path: folderPath } })
+}
+
 export const fileBrowserApi = axios.create({
   baseURL: '/filebrowser/api',
   timeout: 30000,

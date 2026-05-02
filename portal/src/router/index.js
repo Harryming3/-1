@@ -21,6 +21,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/folder/:path(*)',
+    name: 'Folder',
+    component: () => import('../views/FolderView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('../views/SearchView.vue'),
