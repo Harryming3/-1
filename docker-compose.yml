@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # Vue3前端门户
+  portal:
+    build: ./portal
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-service
+      - filebrowser
+      - kkfileview
+    networks:
+      - doc-system
+
+  # 认证服务（Node.js + SQLite）
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./filebrowser.db:/app/filebrowser.db
+    environment:
+      - PORT=3000
+      - JWT_SECRET=your-secret-key-change-in-production
+    networks:
+      - doc-system
+
+  # FileBrowser文件管理
+  filebrowser:
+    image: filebrowser/filebrowser:v2.31.2
+    container_name: doc-filebrowser
+    ports:
+      - "8081:80"
+    volumes:
+      - ./data:/srv
+      - ./filebrowser.db:/database.db
+    environment:
+      - FB_BASEURL=/filebrowser
+    command:
+      - --baseurl=/filebrowser
+      - --database=/database.db
+      - --address=0.0.0.0
+    networks:
+      - doc-system
+
+  # kkFileView PDF预览
+  kkfileview:
+    image: keking/kkfileview:4.1.0
+    container_name: doc-kkfileview
+    ports:
+      - "8012:8012"
+    environment:
+      - SERVER_PORT=8012
+      - PDF_DOWNLOAD_DISABLE=true
+      - PDF_PRINT_DISABLE=true
+      - WATERMARK_TXT=公司-内部资料
+      - SPRING_MVC_STATIC_PATH=/static/file
+      - FILE_UPLOAD_SIZE=100
+      - KETRANS_MAXSIZE=100
+    networks:
+      - doc-system
+
+networks:
+  doc-system:
+    driver: bridge
